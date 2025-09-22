@@ -1,4 +1,5 @@
 import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 
 class GridWorldEnv(gym.Env):
@@ -13,8 +14,8 @@ class GridWorldEnv(gym.Env):
         self.action_space = spaces.Discrete(4)
         self.observation_space = gym.spaces.Dict(
             {
-            "agent": gym.spaces.Box(0, size - 1, shape=(2,), dtype=np.int32),
-            "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=np.int32)
+            "agent": gym.spaces.Box(0, self.size - 1, shape=(2,), dtype=np.int32),
+            "target": gym.spaces.Box(0, self.size - 1, shape=(2,), dtype=np.int32)
             }
         )
 
@@ -82,6 +83,6 @@ class GridWorldEnv(gym.Env):
         tx, ty = map(int, self.target)
         grid[ax][ay] = "A"
         grid[tx][ty] = "T"
-        return "\n".join("".join(row) for row in self.grid)
+        return "\n".join("".join(row) for row in grid)
 
     
