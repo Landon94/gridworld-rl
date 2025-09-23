@@ -40,9 +40,7 @@ if __name__ == "__main__":
             done = terminated or truncated
             total_reward += reward
             obs = next_obs
-        
-        # if (episode + 1) % 50 == 0:
-        #     print(f"Episode {episode+1}, total reward: {total_reward}")
+
 
     with open("q_table.pkl", "wb") as f:
         pickle.dump(dict(agent.Q_table), f)
