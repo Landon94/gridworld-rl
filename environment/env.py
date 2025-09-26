@@ -1,15 +1,17 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+import time
+import matplotlib.pyplot as plt
+from matplotlib import colors
 
 class GridWorldEnv(gym.Env):
-    metadata = {"render_modes": ["ansi"], "render_fps":4}
+    metadata = {"render_modes": ["ansi","human"], "render_fps":3}
     
     def __init__(self, grid: int | list[int], render_mode: str | None) -> None:
         
         #Note Custom map feature coming
         self.size = grid
-
 
         self.action_space = spaces.Discrete(4)
         self.observation_space = gym.spaces.Dict(
@@ -32,6 +34,10 @@ class GridWorldEnv(gym.Env):
         self.render_mode = render_mode
         self.fps = self.metadata['render_fps']
 
+        self.fig = None
+        self.ax = None
+        self.im = None
+
     def reset(self, seed: int | None = None, options: dict = None) -> tuple:
         super().reset(seed=seed)
         self.rng = np.random.default_rng(seed)
@@ -46,6 +52,9 @@ class GridWorldEnv(gym.Env):
         while np.array_equal(self.target, self.agent_location):
             self.target = self.rng.integers(0,self.size,size=2,dtype=np.int32)
         
+        if self.render_mode == "human":
+            self._render_frame()
+
         return self._get_obs(), {}
     
     def _get_obs(self):
@@ -74,15 +83,72 @@ class GridWorldEnv(gym.Env):
             distance = np.linalg.norm(self.agent_location - self.target)
             reward = 1.0 if terminated else -0.1 * distance
 
+        if self.render_mode == "human":
+            self._render_frame()
+
         return self._get_obs(), reward, terminated, False, {}
     
     def render(self):
 
-        grid = [["_" for _ in range(self.size)] for _ in range(self.size)]
+        if self.render_mode == "ansi":
+            grid = [["_" for _ in range(self.size)] for _ in range(self.size)]
+            ax, ay = map(int, self.agent_location)
+            tx, ty = map(int, self.target)
+            grid[ax][ay] = "A"
+            grid[tx][ty] = "T"
+            return "\n".join("".join(row) for row in grid)
+        elif self.render_mode == "human":
+            return None
+        else:
+            print("Error: Incorrect Render Mode")
+            return None
+
+    def _env_grid(self):
+        grid = np.zeros((self.size,self.size),dtype=np.int8)
         ax, ay = map(int, self.agent_location)
         tx, ty = map(int, self.target)
-        grid[ax][ay] = "A"
-        grid[tx][ty] = "T"
-        return "\n".join("".join(row) for row in grid)
+        grid[ay, ax] = 2   
+        grid[ty, tx] = 3   
+        return grid
 
     
+    def _render_init(self):
+        if self.fig is not None:
+            return
+        
+        plt.ion()
+
+        grid = self._env_grid()
+
+        # 0=White(space),1=Black(Wall),2=Red(Agent),3=Green(Target)
+        cmap = colors.ListedColormap(['white','black','red','green'])
+        b_norm = colors.BoundaryNorm([-0.5,0.5,1.5,2.5,3.5],cmap.N)
+
+        self.fig, self.ax = plt.subplots(figsize=(self.size,self.size),tight_layout=True)
+        self.im = self.ax.imshow(grid,cmap=cmap,norm=b_norm,interpolation="none",extent=(-0.5, self.size - 0.5, self.size - 0.5, -0.5),)
+        self.ax.set_aspect("equal")
+
+        self.ax.set_xticks(np.arange(self.size) - 0.5)
+        self.ax.set_yticks(np.arange(self.size) - 0.5)
+        self.ax.set_xticklabels([])
+        self.ax.set_yticklabels([])
+
+        self.ax.grid(which="both",color="lightgray", linewidth=0.5)
+
+        plt.pause(0.001)
+
+    def _render_frame(self):
+        if self.fig is None:
+            self._render_init()
+
+        self.im.set_data(self._env_grid())
+        
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
+
+        time.sleep(1/self.fps)
+    
+    def close(self):
+        if self.fig is not None:
+            plt.ioff()
+            plt.close(self.fig)    
